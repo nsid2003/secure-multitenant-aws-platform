@@ -41,11 +41,9 @@ Trois clients réels sont déployés à titre de démonstration : **cybersky**, 
 
 ## 2. Architecture
 
-![Architecture](docs/Architecture-SecureAWS.png)
+![Architecture Landing Zone](screenshots/00-architecture-landing-zone.png)
 
-*Schéma source éditable : [`docs/Architecture-SecureAWS.drawio`](docs/Architecture-SecureAWS.drawio) — icônes AWS officielles, ouvrable sur [app.diagrams.net](https://app.diagrams.net).*
-
-Le principe : **un seul point d'entrée d'administration** (le VPN), **un seul point d'entrée applicatif** (le reverse proxy), **une seule sortie** pour les clients (le proxy Squid). Les VPC clients sont des îlots privés reliés uniquement au bastion.
+*Schéma d'architecture et zone de landing centralisée pour les services AWS, le VPN, le reverse proxy et les VPC clients.*
 
 ---
 
