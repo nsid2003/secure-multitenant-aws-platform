@@ -14,12 +14,13 @@
 ## 📑 Sommaire
 
 1. [Vue d'ensemble](#1-vue-densemble)
+1.5. [Livrable attendu](#15-livrable-attendu)
 2. [Architecture](#2-architecture)
 3. [Plan d'adressage](#3-plan-dadressage)
 4. [Matrice de flux](#4-matrice-de-flux)
 5. [Les composants en détail](#5-les-composants-en-détail)
-6. [Déploiement & reproduction](#6-déploiement--reproduction)
-7. [Problèmes rencontrés & solutions](#7-problèmes-rencontrés--solutions)
+6. [Déploiement, reproduction et notice technique](#6-déploiement-reproduction-et-notice-technique)
+7. [Rapport de déploiement](#7-rapport-de-déploiement)
 8. [État d'avancement](#8-état-davancement)
 9. [Structure du dépôt](#9-structure-du-dépôt)
 
@@ -36,6 +37,19 @@ industrialisée**, en respectant des contraintes fortes :
 - La plateforme AWS elle-même est durcie (chiffrement, audit, sauvegardes, conformité).
 
 Trois clients réels sont déployés à titre de démonstration : **cybersky**, **drox360** et **visuance** (applications Vite/React).
+
+---
+
+## 1.5 Livrable attendu
+
+Le livrable attendu est une archive `tar` contenant les éléments suivants :
+
+- **Éléments d'infrastructure** : schéma réseau et matrice de flux. Le schéma est disponible dans `docs/Architecture-SecureAWS.drawio` et les captures associées dans `screenshots/00-architecture-landing-zone.png`.
+- **Rapport de déploiement** : réflexions et retours d'expérience par élément de la plateforme. Ce README contient une section dédiée ([Rapport de déploiement](#7-rapport-de-déploiement)).
+- **Scripts et fichiers de description** : les fichiers Terraform (`terraform/`), Ansible (`ansible/`), les templates, l'inventaire, et les captures d'écran (`screenshots/`).
+- **Notice technique d'utilisation et de reproduction** : décrit dans la section [Déploiement, reproduction et notice technique](#6-déploiement-reproduction-et-notice-technique).
+
+> Cette archive n'est pas produite ici, mais le README documente l'ensemble des éléments attendus pour le livrable.
 
 ---
 
@@ -313,7 +327,9 @@ resource "aws_vpc_endpoint" "s3" {
 
 ---
 
-## 6. Déploiement & reproduction
+## 6. Déploiement, reproduction et notice technique
+
+Cette section constitue la notice technique d'utilisation et de reproduction de l'environnement.
 
 **Prérequis :** AWS CLI configuré, Terraform ≥ 1.6, Ansible (sous Linux/WSL), une paire de clés EC2 `secureaws-key`.
 
@@ -340,7 +356,9 @@ Pour accéder aux sites par navigateur, ajouter dans le fichier `hosts` local :
 
 ---
 
-## 7. Problèmes rencontrés & solutions
+## 7. Rapport de déploiement
+
+Le rapport de déploiement couvre les réflexions associées à chaque élément de la plateforme, les problèmes majeurs rencontrés, et les solutions appliquées.
 
 Le projet a impliqué un vrai travail de **diagnostic réseau**. Voici les obstacles majeurs et leur résolution — la partie la plus formatrice.
 
@@ -426,6 +444,8 @@ Le projet a impliqué un vrai travail de **diagnostic réseau**. Voici les obsta
 | `terraform/modules/client/` | Module paramétré : un appel = un client complet |
 | `ansible/` | Rôles `squid`, `nginx_revproxy`, `webserver` + inventaire |
 | `screenshots/` | Captures de chaque étape |
+| `README.md` | Notice technique, rapport de déploiement et documentation du livrable |
+| `inventory/` | Hôtes Ansible et variables d'environnement de déploiement |
 
 ---
 
