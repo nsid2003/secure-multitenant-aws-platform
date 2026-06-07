@@ -45,6 +45,26 @@ Trois clients réels sont déployés à titre de démonstration : **cybersky**, 
 
 *Schéma d'architecture et zone de landing centralisée pour les services AWS, le VPN, le reverse proxy et les VPC clients.*
 
+```hcl
+resource "aws_vpc" "bastion" {
+  cidr_block = "10.0.0.0/16"
+}
+
+resource "aws_subnet" "dmz" {
+  cidr_block = "10.0.1.0/24"
+}
+
+resource "aws_subnet" "vpn" {
+  cidr_block = "10.0.2.0/24"
+}
+
+resource "aws_subnet" "admin" {
+  cidr_block = "10.0.10.0/24"
+}
+```
+
+Le principe : **un seul point d'entrée d'administration** (le VPN), **un seul point d'entrée applicatif** (le reverse proxy), **une seule sortie** pour les clients (le proxy Squid). Les VPC clients sont des îlots privés reliés uniquement au bastion.
+
 ---
 
 ## 3. Plan d'adressage
@@ -93,6 +113,22 @@ VPC `10.0.0.0/16` découpé en 3 subnets. La distinction **public / privé** ne 
 ![Routage bastion](screenshots/04-routage-bastion-console.png)
 *Tables de routage (route IGW sur la publique)*
 
+```hcl
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.bastion.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.bastion.id
+  }
+}
+
+resource "aws_route_table_association" "dmz" {
+  subnet_id      = aws_subnet.dmz.id
+  route_table_id = aws_route_table.public.id
+}
+```
+
 ![Instances bastion](screenshots/06-instances-bastion-console.png)
 *Les 4 instances (le bastion sans IP publique)*
 
@@ -106,6 +142,29 @@ OpenVPN auto-hébergé sur une instance EC2 dans un subnet dédié. L'authentifi
 ![Connexion VPN réussie](screenshots/08-vpn-connexion-reussie.png)
 *`Initialization Sequence Completed` + ping du tunnel*
 
+```hcl
+resource "aws_security_group" "vpn" {
+  name        = "secureaws-vpn-sg"
+  description = "Serveur OpenVPN"
+  vpc_id      = aws_vpc.bastion.id
+
+  ingress {
+    description = "OpenVPN depuis Internet"
+    from_port   = 1194
+    to_port     = 1194
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "vpn" {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.vpn.id
+  associate_public_ip_address = true
+}
+```
+
 ![SSH via VPN](screenshots/09-ssh-bastion-prive-via-vpn.png)
 *SSH vers le bastion privé `10.0.10.x`, uniquement via le VPN*
 
@@ -116,6 +175,28 @@ Squid filtre les flux **sortants** des clients : il n'autorise que les **dépôt
 ![Configuration Squid](screenshots/10-squid-configure.png)
 *Configuration Squid + ACL générées*
 
+```hcl
+resource "aws_security_group" "squid" {
+  name        = "secureaws-squid-sg"
+  description = "Proxy sortant - accessible depuis les zones clientes uniquement"
+  vpc_id      = aws_vpc.bastion.id
+
+  ingress {
+    from_port   = 3128
+    to_port     = 3128
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16", "10.2.0.0/16", "10.3.0.0/16"]
+  }
+}
+```
+
+```yaml
+- name: Déployer la configuration Squid (whitelist des dépôts)
+  template:
+    src: squid.conf.j2
+    dest: /etc/squid/squid.conf
+```
+
 ![Logs Squid](screenshots/15-squid-filtrage-log.png)
 *Preuve du filtrage : logs des clients téléchargeant leurs paquets via le proxy*
 
@@ -125,6 +206,18 @@ Nginx reçoit le HTTPS depuis Internet, **termine le TLS**, et relaie en HTTP ve
 
 ![Reverse proxy OK](screenshots/11-reverse-proxy-ok.png)
 *Reverse proxy en place (test HTTPS + redirection 301)*
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name {{ item.server_name }};
+
+    location / {
+        proxy_pass http://{{ item.backend_ip }};
+        proxy_set_header Host $host;
+    }
+}
+```
 
 ![Flux complet curl](screenshots/17-flux-complet-curl.png)
 *Test CLI du flux complet (curl par FQDN)*
@@ -145,6 +238,20 @@ Chaque client est un VPC privé **sans Internet Gateway**, relié au bastion par
 ![VPC clients créés](screenshots/12-vpc-clients-crees.png)
 *Les 3 VPC clients (`10.1`, `10.2`, `10.3`)*
 
+```hcl
+resource "aws_vpc_peering_connection" "to_bastion" {
+  vpc_id      = aws_vpc.this.id
+  peer_vpc_id = var.bastion_vpc_id
+  auto_accept = true
+}
+
+resource "aws_route" "to_bastion" {
+  route_table_id            = aws_route_table.private.id
+  destination_cidr_block    = var.bastion_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.to_bastion.id
+}
+```
+
 ![Peering actif](screenshots/13-peering-actif.png)
 *Les 3 connexions de peering actives*
 
@@ -154,6 +261,20 @@ Les sites sont des applications **Vite/React**. La bonne pratique appliquée : *
 
 ![Sites déployés](screenshots/14-sites-deployes-recap.png)
 *`PLAY RECAP` Ansible vert sur les 3 clients*
+
+```yaml
+- name: Configurer APT pour sortir via le proxy Squid
+  copy:
+    content: |
+      Acquire::http::Proxy "http://{{ squid_ip }}:3128";
+      Acquire::https::Proxy "http://{{ squid_ip }}:3128";
+    dest: /etc/apt/apt.conf.d/00proxy
+
+- name: Déployer le site (dist) sur le serveur
+  copy:
+    src: "{{ playbook_dir }}/../{{ site_name }}/dist/"
+    dest: "/var/www/{{ site_name }}/"
+```
 
 ![Site servi localement](screenshots/16-site-servi-localement.png)
 *Le HTML servi par Nginx sur le serveur privé*
@@ -165,6 +286,15 @@ Les sites sont des applications **Vite/React**. La bonne pratique appliquée : *
 - **VPC Endpoint S3 + bucket chiffré par client** : les clients accèdent à S3 sans passer par Internet.
 - **AWS Backup** : coffre chiffré + plan de sauvegarde quotidien des ressources taggées.
 - **AWS Config** : 3 règles de conformité managées (validation automatique des règles de filtrage → **tâche 4**).
+
+```hcl
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id          = aws_vpc.this.id
+  service_name    = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids = [aws_route_table.private.id]
+}
+```
 
 ![KMS et CloudTrail](screenshots/21-kms-cloudtrail.png)
 *Clé KMS + CloudTrail actif*
