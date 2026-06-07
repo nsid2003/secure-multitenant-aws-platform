@@ -1,0 +1,19 @@
+---
+- name: Installer Squid
+  apt:
+    name: squid
+    state: present
+    update_cache: yes
+
+- name: Déployer la configuration Squid (whitelist des dépôts)
+  template:
+    src: squid.conf.j2
+    dest: /etc/squid/squid.conf
+    mode: '0644'
+  notify: Redémarrer Squid
+
+- name: Activer et démarrer Squid
+  service:
+    name: squid
+    state: started
+    enabled: yes

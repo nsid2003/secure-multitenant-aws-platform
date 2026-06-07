@@ -1,0 +1,25 @@
+# Géré par Ansible — rôle squid
+http_port 3128
+
+# seuls les réseaux clients peuvent se connecter au proxy
+{% for net in client_networks %}
+acl clients src {{ net }}
+{% endfor %}
+
+# les domaines des dépôts de paquets autorisés
+{% for dom in allowed_package_repos %}
+acl allowed_repos dstdomain {{ dom }}
+{% endfor %}
+
+acl SSL_ports port 443
+acl Safe_ports port 80
+acl Safe_ports port 443
+acl CONNECT method CONNECT
+
+http_access deny !Safe_ports
+http_access deny CONNECT !SSL_ports
+http_access allow clients allowed_repos
+http_access deny all
+
+cache deny all
+access_log /var/log/squid/access.log

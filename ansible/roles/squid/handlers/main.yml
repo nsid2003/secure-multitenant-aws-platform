@@ -1,0 +1,5 @@
+---
+- name: Redémarrer Squid
+  service:
+    name: squid
+    state: restarted

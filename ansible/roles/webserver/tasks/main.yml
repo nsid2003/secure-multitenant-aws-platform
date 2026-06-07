@@ -1,0 +1,51 @@
+---
+- name: Configurer APT pour sortir via le proxy Squid
+  copy:
+    content: |
+      Acquire::http::Proxy "http://{{ squid_ip }}:3128";
+      Acquire::https::Proxy "http://{{ squid_ip }}:3128";
+    dest: /etc/apt/apt.conf.d/00proxy
+    mode: '0644'
+
+- name: Pointer APT sur le miroir régional EC2 (joignable via Squid, évite security.ubuntu.com)
+  copy:
+    content: |
+      deb http://eu-west-3.ec2.archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
+      deb http://eu-west-3.ec2.archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
+    dest: /etc/apt/sources.list
+    mode: '0644'
+
+- name: Vider les sources annexes qui pointeraient sur security.ubuntu.com
+  shell: rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources
+  args:
+    removes: /etc/apt/sources.list.d
+  changed_when: false
+
+- name: Installer Nginx (en passant par Squid)
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Créer la racine du site
+  file:
+    path: "/var/www/{{ site_name }}"
+    state: directory
+    mode: '0755'
+
+- name: Déployer le site (dist) sur le serveur
+  copy:
+    src: "{{ playbook_dir }}/../{{ site_name }}/dist/"
+    dest: "/var/www/{{ site_name }}/"
+
+- name: Configurer le vhost Nginx
+  template:
+    src: site.conf.j2
+    dest: /etc/nginx/sites-available/default
+  notify: Recharger Nginx
+
+- name: Activer et démarrer Nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes

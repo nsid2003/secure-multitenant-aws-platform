@@ -1,0 +1,48 @@
+---
+- name: Installer Nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Créer le dossier des certificats
+  file:
+    path: /etc/nginx/certs
+    state: directory
+    mode: '0755'
+
+- name: Générer un certificat auto-signé (lab)
+  command: >
+    openssl req -x509 -nodes -newkey rsa:2048
+    -keyout /etc/nginx/certs/selfsigned.key
+    -out /etc/nginx/certs/selfsigned.crt
+    -days 365 -subj "/CN=secureaws-revproxy"
+  args:
+    creates: /etc/nginx/certs/selfsigned.crt
+
+- name: Déployer la configuration par défaut
+  template:
+    src: default.conf.j2
+    dest: /etc/nginx/sites-available/default
+  notify: Recharger Nginx
+
+- name: Déployer un vhost par client
+  template:
+    src: client.conf.j2
+    dest: "/etc/nginx/sites-available/{{ item.name }}.conf"
+  loop: "{{ reverse_proxy_clients }}"
+  notify: Recharger Nginx
+
+- name: Activer les vhosts clients
+  file:
+    src: "/etc/nginx/sites-available/{{ item.name }}.conf"
+    dest: "/etc/nginx/sites-enabled/{{ item.name }}.conf"
+    state: link
+  loop: "{{ reverse_proxy_clients }}"
+  notify: Recharger Nginx
+
+- name: Activer et démarrer Nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes

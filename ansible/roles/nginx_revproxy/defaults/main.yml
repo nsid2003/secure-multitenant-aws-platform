@@ -1,0 +1,11 @@
+---
+reverse_proxy_clients:
+  - name: cybersky
+    server_name: cybersky.secureaws.local
+    backend_ip: 10.1.1.187
+  - name: drox360
+    server_name: drox360.secureaws.local
+    backend_ip: 10.2.1.97
+  - name: visuance
+    server_name: visuance.secureaws.local
+    backend_ip: 10.3.1.194

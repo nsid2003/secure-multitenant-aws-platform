@@ -1,0 +1,33 @@
+# ---- Terraform ----
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars            # contient des valeurs sensibles ; on versionne seulement .tfvars.example
+!*.tfvars.example
+.terraform.lock.hcl
+
+# ---- Ansible ----
+*.retry
+
+# ---- Secrets / PKI / VPN : NE JAMAIS COMMIT ----
+*.pem
+*.key
+*.crt
+*.ovpn
+pki/
+easy-rsa/
+*.p12
+
+# ---- OS / IDE ----
+.DS_Store
+.vscode/
+*.swp
+
+# ---- Sites clients réels (privés, NE JAMAIS publier) ----
+cybersky/
+drox360/
+visuance/
+# artefacts de build éventuels ailleurs
+ansible/site-builds/
+**/dist/

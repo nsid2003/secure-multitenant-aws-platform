@@ -1,0 +1,13 @@
+---
+# Réseaux autorisés à utiliser le proxy (les VPC clients)
+client_networks:
+  - 10.1.0.0/16
+  - 10.2.0.0/16
+  - 10.3.0.0/16
+
+# Domaines de dépôts autorisés (le point initial = tous les sous-domaines/miroirs)
+allowed_package_repos:
+  - .archive.ubuntu.com
+  - .security.ubuntu.com
+  - .ports.ubuntu.com
+  - .debian.org

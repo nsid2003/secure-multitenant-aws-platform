@@ -1,0 +1,5 @@
+---
+- hosts: revproxy
+  become: true
+  roles:
+    - nginx_revproxy
