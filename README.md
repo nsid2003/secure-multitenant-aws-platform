@@ -86,61 +86,79 @@ Politique **« deny par défaut »** : chaque Security Group n'autorise que le s
 
 VPC `10.0.0.0/16` découpé en 3 subnets. La distinction **public / privé** ne se fait pas par une option, mais par le **routage** : un subnet est public uniquement si sa table de routage a une route `0.0.0.0/0 → Internet Gateway`. Le subnet admin n'a, lui, **aucune** route vers Internet — d'où son isolement.
 
-| Capture | Fichier |
-|---------|---------|
-| `screenshots/02-vpc-bastion-console.png` | Le VPC bastion `10.0.0.0/16` |
-| `screenshots/03-subnets-bastion-console.png` | Les 3 subnets (DMZ, VPN, admin) |
-| `screenshots/04-routage-bastion-console.png` | Tables de routage (route IGW sur la publique) |
-| `screenshots/06-instances-bastion-console.png` | Les 4 instances (le bastion sans IP publique) |
+![VPC bastion](screenshots/02-vpc-bastion-console.png)
+*Le VPC bastion `10.0.0.0/16`*
+
+![Subnets bastion](screenshots/03-subnets-bastion-console.png)
+*Les 3 subnets (DMZ, VPN, admin)*
+
+![Routage bastion](screenshots/04-routage-bastion-console.png)
+*Tables de routage (route IGW sur la publique)*
+
+![Instances bastion](screenshots/06-instances-bastion-console.png)
+*Les 4 instances (le bastion sans IP publique)*
 
 ### 5.2 Le serveur VPN + PKI
 
 OpenVPN auto-hébergé sur une instance EC2 dans un subnet dédié. L'authentification se fait par **certificats** issus d'une **PKI** (easy-rsa) : une autorité racine (CA) signe le certificat du serveur et un certificat par administrateur. Le serveur fait du **NAT** pour que les admins atteignent le bastion privé à travers le tunnel.
 
-| Capture | Fichier |
-|---------|---------|
-| `screenshots/05-instance-openvpn-console.png` | L'instance OpenVPN *running* |
-| `screenshots/08-vpn-connexion-reussie.png` | `Initialization Sequence Completed` + ping du tunnel |
-| `screenshots/09-ssh-bastion-prive-via-vpn.png` | **SSH vers le bastion privé `10.0.10.x`, uniquement via le VPN** |
+![Instance OpenVPN](screenshots/05-instance-openvpn-console.png)
+*L'instance OpenVPN en fonctionnement*
+
+![Connexion VPN réussie](screenshots/08-vpn-connexion-reussie.png)
+*`Initialization Sequence Completed` + ping du tunnel*
+
+![SSH via VPN](screenshots/09-ssh-bastion-prive-via-vpn.png)
+*SSH vers le bastion privé `10.0.10.x`, uniquement via le VPN*
 
 ### 5.3 Le proxy sortant (Squid)
 
 Squid filtre les flux **sortants** des clients : il n'autorise que les **dépôts de paquets** (whitelist de domaines) et **uniquement depuis les réseaux clients**. C'est la double sécurité : le Security Group gère *qui* peut entrer (port 3128 depuis les VPC clients), Squid gère *vers où* on peut sortir.
 
-| Capture | Fichier |
-|---------|---------|
-| `screenshots/10-squid-configure.png` | Conf Squid + ACL générées |
-| `screenshots/15-squid-filtrage-log.png` | **Preuve du filtrage** : logs des clients téléchargeant leurs paquets via le proxy |
+![Configuration Squid](screenshots/10-squid-configure.png)
+*Configuration Squid + ACL générées*
+
+![Logs Squid](screenshots/15-squid-filtrage-log.png)
+*Preuve du filtrage : logs des clients téléchargeant leurs paquets via le proxy*
 
 ### 5.4 Le reverse proxy (Nginx)
 
 Nginx reçoit le HTTPS depuis Internet, **termine le TLS**, et relaie en HTTP vers le serveur web privé du bon client selon le **FQDN** demandé (un *vhost* par client). Les serveurs web ne sont **jamais** exposés directement.
 
-| Capture | Fichier |
-|---------|---------|
-| `screenshots/11-reverse-proxy-ok.png` | Reverse proxy en place (test HTTPS + redirection 301) |
-| `screenshots/17-flux-complet-curl.png` | Test CLI du flux complet (curl par FQDN) |
-| `screenshots/18-site-cybersky-navigateur.png` | **Le site cybersky dans le navigateur** |
-| `screenshots/19-site-drox360.png` | Le site drox360 |
-| `screenshots/20-site-visuance.png` | Le site visuance |
+![Reverse proxy OK](screenshots/11-reverse-proxy-ok.png)
+*Reverse proxy en place (test HTTPS + redirection 301)*
+
+![Flux complet curl](screenshots/17-flux-complet-curl.png)
+*Test CLI du flux complet (curl par FQDN)*
+
+![Site Cybersky](screenshots/18-site-cybersky-navigateur.png)
+*Le site cybersky dans le navigateur*
+
+![Site drox360](screenshots/19-site-drox360.png)
+*Le site drox360*
+
+![Site visuance](screenshots/20-site-visuance.png)
+*Le site visuance*
 
 ### 5.5 Les VPC clients & le peering
 
 Chaque client est un VPC privé **sans Internet Gateway**, relié au bastion par **VPC peering**. Point élégant : le peering **n'est pas transitif** — comme aucun peering ne relie les clients entre eux, leur **étanchéité est gratuite**, sans configuration supplémentaire.
 
-| Capture | Fichier |
-|---------|---------|
-| `screenshots/12-vpc-clients-crees.png` | Les 3 VPC clients (`10.1`, `10.2`, `10.3`) |
-| `screenshots/13-peering-actif.png` | Les 3 connexions de peering *active* |
+![VPC clients créés](screenshots/12-vpc-clients-crees.png)
+*Les 3 VPC clients (`10.1`, `10.2`, `10.3`)*
+
+![Peering actif](screenshots/13-peering-actif.png)
+*Les 3 connexions de peering actives*
 
 ### 5.6 Le déploiement des sites
 
 Les sites sont des applications **Vite/React**. La bonne pratique appliquée : **builder l'artefact statique sur une machine disposant d'Internet**, puis **n'expédier que le `dist/`** (via Ansible) sur le serveur privé, qui se contente de le servir avec Nginx. Le serveur client reste minimal, sans Node ni accès npm — il installe Nginx **uniquement à travers Squid**.
 
-| Capture | Fichier |
-|---------|---------|
-| `screenshots/14-sites-deployes-recap.png` | `PLAY RECAP` Ansible vert sur les 3 clients |
-| `screenshots/16-site-servi-localement.png` | Le HTML servi par Nginx sur le serveur privé |
+![Sites déployés](screenshots/14-sites-deployes-recap.png)
+*`PLAY RECAP` Ansible vert sur les 3 clients*
+
+![Site servi localement](screenshots/16-site-servi-localement.png)
+*Le HTML servi par Nginx sur le serveur privé*
 
 ### 5.7 La sécurité de la plateforme
 
@@ -150,13 +168,20 @@ Les sites sont des applications **Vite/React**. La bonne pratique appliquée : *
 - **AWS Backup** : coffre chiffré + plan de sauvegarde quotidien des ressources taggées.
 - **AWS Config** : 3 règles de conformité managées (validation automatique des règles de filtrage → **tâche 4**).
 
-| Capture | Fichier |
-|---------|---------|
-| `screenshots/21-kms-cloudtrail.png` | Clé KMS + CloudTrail actif |
-| `screenshots/22-buckets-s3-chiffres.png` | Buckets S3 (chiffrés SSE-KMS) |
-| `screenshots/23-vpc-endpoints-s3.png` | Les 3 VPC Endpoints S3 |
-| `screenshots/24-aws-backup.png` | Plan de sauvegarde AWS Backup |
-| `screenshots/25-aws-config-conformite.png` | Règles AWS Config + statut de conformité |
+![KMS et CloudTrail](screenshots/21-kms-cloudtrail.png)
+*Clé KMS + CloudTrail actif*
+
+![Buckets S3 chiffrés](screenshots/22-buckets-s3-chiffres.png)
+*Buckets S3 chiffrés SSE-KMS*
+
+![VPC Endpoints S3](screenshots/23-vpc-endpoints-s3.png)
+*Les 3 VPC Endpoints S3*
+
+![AWS Backup](screenshots/24-aws-backup.png)
+*Plan de sauvegarde AWS Backup*
+
+![AWS Config conformité](screenshots/25-aws-config-conformite.png)
+*Règles AWS Config + statut de conformité*
 
 ---
 

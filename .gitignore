@@ -31,3 +31,4 @@ visuance/
 # artefacts de build éventuels ailleurs
 ansible/site-builds/
 **/dist/
+*.pdf
