@@ -86,7 +86,7 @@ Politique **« deny par défaut »** : chaque Security Group n'autorise que le s
 
 VPC `10.0.0.0/16` découpé en 3 subnets. La distinction **public / privé** ne se fait pas par une option, mais par le **routage** : un subnet est public uniquement si sa table de routage a une route `0.0.0.0/0 → Internet Gateway`. Le subnet admin n'a, lui, **aucune** route vers Internet — d'où son isolement.
 
-| Capture | Contenu |
+| Capture | Fichier |
 |---------|---------|
 | `screenshots/02-vpc-bastion-console.png` | Le VPC bastion `10.0.0.0/16` |
 | `screenshots/03-subnets-bastion-console.png` | Les 3 subnets (DMZ, VPN, admin) |
@@ -97,7 +97,7 @@ VPC `10.0.0.0/16` découpé en 3 subnets. La distinction **public / privé** ne 
 
 OpenVPN auto-hébergé sur une instance EC2 dans un subnet dédié. L'authentification se fait par **certificats** issus d'une **PKI** (easy-rsa) : une autorité racine (CA) signe le certificat du serveur et un certificat par administrateur. Le serveur fait du **NAT** pour que les admins atteignent le bastion privé à travers le tunnel.
 
-| Capture | Contenu |
+| Capture | Fichier |
 |---------|---------|
 | `screenshots/05-instance-openvpn-console.png` | L'instance OpenVPN *running* |
 | `screenshots/08-vpn-connexion-reussie.png` | `Initialization Sequence Completed` + ping du tunnel |
@@ -107,7 +107,7 @@ OpenVPN auto-hébergé sur une instance EC2 dans un subnet dédié. L'authentifi
 
 Squid filtre les flux **sortants** des clients : il n'autorise que les **dépôts de paquets** (whitelist de domaines) et **uniquement depuis les réseaux clients**. C'est la double sécurité : le Security Group gère *qui* peut entrer (port 3128 depuis les VPC clients), Squid gère *vers où* on peut sortir.
 
-| Capture | Contenu |
+| Capture | Fichier |
 |---------|---------|
 | `screenshots/10-squid-configure.png` | Conf Squid + ACL générées |
 | `screenshots/15-squid-filtrage-log.png` | **Preuve du filtrage** : logs des clients téléchargeant leurs paquets via le proxy |
@@ -116,7 +116,7 @@ Squid filtre les flux **sortants** des clients : il n'autorise que les **dépôt
 
 Nginx reçoit le HTTPS depuis Internet, **termine le TLS**, et relaie en HTTP vers le serveur web privé du bon client selon le **FQDN** demandé (un *vhost* par client). Les serveurs web ne sont **jamais** exposés directement.
 
-| Capture | Contenu |
+| Capture | Fichier |
 |---------|---------|
 | `screenshots/11-reverse-proxy-ok.png` | Reverse proxy en place (test HTTPS + redirection 301) |
 | `screenshots/17-flux-complet-curl.png` | Test CLI du flux complet (curl par FQDN) |
@@ -128,7 +128,7 @@ Nginx reçoit le HTTPS depuis Internet, **termine le TLS**, et relaie en HTTP ve
 
 Chaque client est un VPC privé **sans Internet Gateway**, relié au bastion par **VPC peering**. Point élégant : le peering **n'est pas transitif** — comme aucun peering ne relie les clients entre eux, leur **étanchéité est gratuite**, sans configuration supplémentaire.
 
-| Capture | Contenu |
+| Capture | Fichier |
 |---------|---------|
 | `screenshots/12-vpc-clients-crees.png` | Les 3 VPC clients (`10.1`, `10.2`, `10.3`) |
 | `screenshots/13-peering-actif.png` | Les 3 connexions de peering *active* |
@@ -137,7 +137,7 @@ Chaque client est un VPC privé **sans Internet Gateway**, relié au bastion par
 
 Les sites sont des applications **Vite/React**. La bonne pratique appliquée : **builder l'artefact statique sur une machine disposant d'Internet**, puis **n'expédier que le `dist/`** (via Ansible) sur le serveur privé, qui se contente de le servir avec Nginx. Le serveur client reste minimal, sans Node ni accès npm — il installe Nginx **uniquement à travers Squid**.
 
-| Capture | Contenu |
+| Capture | Fichier |
 |---------|---------|
 | `screenshots/14-sites-deployes-recap.png` | `PLAY RECAP` Ansible vert sur les 3 clients |
 | `screenshots/16-site-servi-localement.png` | Le HTML servi par Nginx sur le serveur privé |
@@ -150,7 +150,7 @@ Les sites sont des applications **Vite/React**. La bonne pratique appliquée : *
 - **AWS Backup** : coffre chiffré + plan de sauvegarde quotidien des ressources taggées.
 - **AWS Config** : 3 règles de conformité managées (validation automatique des règles de filtrage → **tâche 4**).
 
-| Capture | Contenu |
+| Capture | Fichier |
 |---------|---------|
 | `screenshots/21-kms-cloudtrail.png` | Clé KMS + CloudTrail actif |
 | `screenshots/22-buckets-s3-chiffres.png` | Buckets S3 (chiffrés SSE-KMS) |
